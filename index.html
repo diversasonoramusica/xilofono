@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Xilófono digital accesible</title>
+    <link rel="stylesheet" href="styles.css?v=xilofono-es-6">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="top-panel" aria-labelledby="app-title">
+        <div class="title-block">
+          <h1 id="app-title">Xilófono digital</h1>
+          <p>Elige una escala, selecciona una tónica y toca las barras.</p>
+        </div>
+
+        <section class="controls" aria-label="Controles del xilófono">
+          <label class="control">
+            <span>Escala</span>
+            <select id="scale-select" aria-label="Tipo de escala"></select>
+          </label>
+
+          <label class="control">
+            <span>Tónica</span>
+            <select id="root-select" aria-label="Nota tónica"></select>
+          </label>
+
+          <label class="control">
+            <span>Notación</span>
+            <select id="notation-select" aria-label="Notación de las notas">
+              <option value="solfege">Do Re Mi</option>
+              <option value="english">C D E</option>
+            </select>
+          </label>
+
+          <fieldset class="display-options">
+            <legend>Visualización</legend>
+            <label class="display-toggle" for="show-degrees">
+              <input id="show-degrees" type="checkbox" checked>
+              <span>Mostrar grados</span>
+            </label>
+            <label class="display-toggle" for="show-keyboard-shortcuts">
+              <input id="show-keyboard-shortcuts" type="checkbox">
+              <span>Mostrar teclas</span>
+            </label>
+          </fieldset>
+
+          <button id="audio-unlock" class="audio-button" type="button" aria-live="polite">Activar sonido</button>
+        </section>
+      </header>
+
+      <section id="custom-panel" class="custom-panel" aria-labelledby="custom-title" hidden>
+        <div class="custom-intro">
+          <h2 id="custom-title">Escala personalizada</h2>
+          <p>Elige las notas de tu escala empezando desde la tónica seleccionada. Si cambias la tónica, el patrón se transporta.</p>
+          <button id="clear-custom-scale" class="secondary-button" type="button">Limpiar escala</button>
+        </div>
+        <div id="custom-note-toggles" class="custom-grid" role="group" aria-label="Patrón de escala personalizada desde la tónica seleccionada"></div>
+      </section>
+
+      <section class="instrument-section" aria-labelledby="instrument-title">
+        <div class="instrument-heading">
+          <h2 id="instrument-title">Toca la escala</h2>
+          <p id="scale-summary" aria-live="polite"></p>
+        </div>
+
+        <div id="empty-message" class="empty-message" role="status" hidden>
+          Selecciona al menos una nota personalizada para crear barras tocables.
+        </div>
+
+        <div id="xylophone" class="xylophone" role="group" aria-label="Barras tocables del xilófono"></div>
+      </section>
+    </main>
+
+    <script src="app.js?v=xilofono-es-6"></script>
+  </body>
+</html>
