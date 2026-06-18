@@ -276,6 +276,46 @@ select {
   overflow: hidden;
 }
 
+.xylophone.is-two-octaves {
+  min-height: min(78vh, 680px);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: clamp(16px, 2.4vw, 28px);
+}
+
+.octave-row {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 7px;
+}
+
+.octave-label {
+  padding: 0 4px;
+  color: #5c4938;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.octave-bars {
+  --bar-count: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--bar-count), minmax(0, 1fr));
+  align-items: stretch;
+  gap: clamp(3px, 0.8vw, 12px);
+}
+
+.xylophone.is-two-octaves .bar {
+  min-height: 190px;
+}
+
 .bar {
   --bar-color: #e84d5b;
   --bar-shadow: rgba(86, 38, 46, 0.24);
@@ -458,6 +498,28 @@ select {
     gap: 2px;
     padding: 8px 6px;
     border-radius: 6px;
+  }
+
+  .xylophone.is-two-octaves {
+    min-height: 560px;
+    gap: 14px;
+  }
+
+  .xylophone.is-two-octaves .bar {
+    min-height: 180px;
+  }
+
+  .octave-row {
+    gap: 5px;
+  }
+
+  .octave-label {
+    padding-inline: 2px;
+    font-size: 0.65rem;
+  }
+
+  .octave-bars {
+    gap: 2px;
   }
 
   .bar {

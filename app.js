@@ -106,12 +106,14 @@ const CHROMA_NOTE_COLORS = [
   "#ec407a",
 ];
 
-const KEYBOARD_KEYS = ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "Enter"];
+const LOWER_OCTAVE_KEYS = ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "Enter"];
+const UPPER_OCTAVE_KEYS = ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]"];
 const BASE_MIDI_NOTE = 60; // C4, a comfortable starting register for children.
 
 const state = {
   selectedScale: "major",
   rootIndex: 0,
+  octaveRange: 1,
   customIntervals: [],
   notation: "solfege",
   showDegrees: true,
@@ -127,6 +129,7 @@ const elements = {
   scaleSelect: document.querySelector("#scale-select"),
   rootSelect: document.querySelector("#root-select"),
   notationSelect: document.querySelector("#notation-select"),
+  rangeSelect: document.querySelector("#range-select"),
   showDegrees: document.querySelector("#show-degrees"),
   showKeyboardShortcuts: document.querySelector("#show-keyboard-shortcuts"),
   audioUnlock: document.querySelector("#audio-unlock"),
@@ -207,27 +210,38 @@ function transposeInterval(rootIndex, interval) {
   return normalizePitchClass(rootIndex + interval);
 }
 
-function generateScaleNotes(rootIndex, intervals) {
+function generateScaleNotes(rootIndex, intervals, octaveRole, keyboardKeys) {
+  const octaveOffset = octaveRole === "high" ? 12 : 0;
+
   return intervals.map((interval, index) => {
     const pitchClass = transposeInterval(rootIndex, interval);
-    const midiNote = BASE_MIDI_NOTE + rootIndex + interval;
+    const midiNote = BASE_MIDI_NOTE + rootIndex + interval + octaveOffset;
 
     return {
-      id: `${pitchClass}-${index}-${interval}`,
+      id: `${octaveRole}-${pitchClass}-${index}-${interval}`,
       noteName: NOTE_NAMES[pitchClass],
       pitchClass,
       interval,
       degree: DEGREE_LABELS[normalizePitchClass(interval)],
       midiNote,
       frequency: midiToFrequency(midiNote),
-      keyboardKey: KEYBOARD_KEYS[index] || "",
+      keyboardKey: keyboardKeys[index] || "",
+      octaveRole,
     };
   });
 }
 
 function updateScale() {
   const intervals = getActiveIntervals();
-  state.notes = generateScaleNotes(state.rootIndex, intervals);
+  const lowNotes = generateScaleNotes(state.rootIndex, intervals, "low", LOWER_OCTAVE_KEYS);
+
+  if (state.octaveRange === 2) {
+    const highNotes = generateScaleNotes(state.rootIndex, intervals, "high", UPPER_OCTAVE_KEYS);
+    state.notes = [...highNotes, ...lowNotes];
+    return;
+  }
+
+  state.notes = lowNotes;
 }
 
 function ensureAudioContext() {
@@ -382,6 +396,7 @@ function renderControls() {
   elements.scaleSelect.value = state.selectedScale;
   elements.rootSelect.value = String(state.rootIndex);
   elements.notationSelect.value = state.notation;
+  elements.rangeSelect.value = String(state.octaveRange);
   elements.showDegrees.checked = state.showDegrees;
   elements.showKeyboardShortcuts.checked = state.showKeyboardShortcuts;
 }
@@ -407,87 +422,132 @@ function renderCustomToggles() {
   elements.clearCustomScale.disabled = state.customIntervals.length === 0;
 }
 
-function renderBars() {
-  const barCount = state.notes.length;
+function createBar(note, noteIndex, visualIndex) {
+  const bar = document.createElement("button");
+  const color = CHROMA_NOTE_COLORS[note.pitchClass];
+  const offsetStep = state.octaveRange === 2 ? 3 : 7;
+  const offset = `${visualIndex * offsetStep}px`;
+  const displayName = getDisplayNoteName(note.pitchClass);
+  const octaveLabel = note.octaveRole === "high" ? "aguda" : "grave";
+  let pointerTriggered = false;
+  let pointerResetTimer = null;
 
-  elements.xylophone.innerHTML = "";
-  elements.xylophone.style.setProperty("--bar-count", String(Math.max(barCount, 1)));
-  elements.xylophone.dataset.noteCount = String(barCount);
-  elements.emptyMessage.hidden = barCount > 0;
-  elements.xylophone.hidden = barCount === 0;
+  bar.type = "button";
+  bar.className = "bar";
+  bar.dataset.noteIndex = String(noteIndex);
+  bar.dataset.pitchClass = String(note.pitchClass);
+  bar.dataset.interval = String(note.interval);
+  bar.dataset.midiNote = String(note.midiNote);
+  bar.dataset.frequency = String(note.frequency);
+  bar.dataset.keyboardKey = note.keyboardKey;
+  bar.dataset.octaveRole = note.octaveRole;
+  bar.style.setProperty("--bar-color", color);
+  bar.style.setProperty("--bar-offset", offset);
+  bar.setAttribute("aria-label", `Tocar ${displayName}, octava ${octaveLabel}`);
 
-  state.notes.forEach((note, index) => {
-    const bar = document.createElement("button");
-    const color = CHROMA_NOTE_COLORS[note.pitchClass];
-    const offset = `${index * 7}px`;
-    const displayName = getDisplayNoteName(note.pitchClass);
-    let pointerTriggered = false;
-    let pointerResetTimer = null;
-
-    bar.type = "button";
-    bar.className = "bar";
-    bar.dataset.noteIndex = String(index);
-    bar.style.setProperty("--bar-color", color);
-    bar.style.setProperty("--bar-offset", offset);
-    bar.setAttribute("aria-label", `Tocar nota ${displayName}`);
-
-    bar.innerHTML = `
-      <span class="bar-content">
-        <span class="note-label">${displayName}</span>
-        <span class="bar-meta">
-          <span class="degree-label"${state.showDegrees ? "" : " hidden"}>${note.degree}</span>
-          ${note.keyboardKey ? `<span class="key-label"${state.showKeyboardShortcuts ? "" : " hidden"}>${note.keyboardKey.toUpperCase()}</span>` : ""}
-        </span>
+  bar.innerHTML = `
+    <span class="bar-content">
+      <span class="note-label">${displayName}</span>
+      <span class="bar-meta">
+        <span class="degree-label"${state.showDegrees ? "" : " hidden"}>${note.degree}</span>
+        ${note.keyboardKey ? `<span class="key-label"${state.showKeyboardShortcuts ? "" : " hidden"}>${note.keyboardKey.toUpperCase()}</span>` : ""}
       </span>
-    `;
+    </span>
+  `;
 
-    bar.addEventListener("pointerdown", (event) => {
-      if (event.pointerType === "mouse" && event.button !== 0) {
-        return;
-      }
+  bar.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
 
-      event.preventDefault();
-      window.clearTimeout(pointerResetTimer);
-      pointerTriggered = true;
-      bar.setPointerCapture?.(event.pointerId);
-      playNoteAtIndex(index);
-    });
+    event.preventDefault();
+    window.clearTimeout(pointerResetTimer);
+    pointerTriggered = true;
+    bar.setPointerCapture?.(event.pointerId);
+    playNoteAtIndex(noteIndex);
+  });
 
-    bar.addEventListener("pointerup", () => {
-      pointerResetTimer = window.setTimeout(() => {
-        pointerTriggered = false;
-      }, 0);
-    });
+  bar.addEventListener("pointerup", () => {
+    pointerResetTimer = window.setTimeout(() => {
+      pointerTriggered = false;
+    }, 0);
+  });
 
-    bar.addEventListener("pointercancel", () => {
+  bar.addEventListener("pointercancel", () => {
+    window.clearTimeout(pointerResetTimer);
+    pointerTriggered = false;
+  });
+
+  bar.addEventListener("click", (event) => {
+    if (pointerTriggered) {
       window.clearTimeout(pointerResetTimer);
       pointerTriggered = false;
+      event.preventDefault();
+      return;
+    }
+    playNoteAtIndex(noteIndex);
+  });
+
+  return bar;
+}
+
+function renderBars() {
+  const notesPerOctave = state.notes.filter((note) => note.octaveRole === "low").length;
+  const hasNotes = notesPerOctave > 0;
+
+  elements.xylophone.innerHTML = "";
+  elements.xylophone.classList.toggle("is-two-octaves", state.octaveRange === 2);
+  elements.xylophone.style.setProperty("--bar-count", String(Math.max(notesPerOctave, 1)));
+  elements.xylophone.dataset.noteCount = String(state.notes.length);
+  elements.emptyMessage.hidden = hasNotes;
+  elements.xylophone.hidden = !hasNotes;
+
+  if (state.octaveRange === 1) {
+    state.notes.forEach((note, index) => {
+      elements.xylophone.append(createBar(note, index, index));
+    });
+    return;
+  }
+
+  [
+    { role: "high", label: "Aguda" },
+    { role: "low", label: "Grave" },
+  ].forEach(({ role, label }) => {
+    const row = document.createElement("div");
+    const rowLabel = document.createElement("span");
+    const bars = document.createElement("div");
+    const rowNotes = state.notes
+      .map((note, index) => ({ note, index }))
+      .filter(({ note }) => note.octaveRole === role);
+
+    row.className = `octave-row octave-row--${role}`;
+    rowLabel.className = "octave-label";
+    rowLabel.textContent = label;
+    bars.className = "octave-bars";
+    bars.style.setProperty("--bar-count", String(Math.max(rowNotes.length, 1)));
+    bars.setAttribute("role", "group");
+    bars.setAttribute("aria-label", `Octava ${label.toLowerCase()}`);
+
+    rowNotes.forEach(({ note, index }, visualIndex) => {
+      bars.append(createBar(note, index, visualIndex));
     });
 
-    bar.addEventListener("click", (event) => {
-      if (pointerTriggered) {
-        window.clearTimeout(pointerResetTimer);
-        pointerTriggered = false;
-        event.preventDefault();
-        return;
-      }
-      playNoteAtIndex(index);
-    });
-
-    elements.xylophone.append(bar);
+    row.append(rowLabel, bars);
+    elements.xylophone.append(row);
   });
 }
 
 function updateSummary() {
   const scaleLabel = SCALE_INTERVALS[state.selectedScale].label;
   const rootLabel = getDisplayNoteName(state.rootIndex);
+  const summaryNotes = state.notes.filter((note) => note.octaveRole === "low");
 
-  if (state.notes.length === 0) {
+  if (summaryNotes.length === 0) {
     elements.scaleSummary.textContent = `${rootLabel} · ${scaleLabel}: sin notas seleccionadas`;
     return;
   }
 
-  elements.scaleSummary.textContent = `${rootLabel} · ${scaleLabel}: ${state.notes
+  elements.scaleSummary.textContent = `${rootLabel} · ${scaleLabel}: ${summaryNotes
     .map((note) => getDisplayNoteName(note.pitchClass))
     .join(", ")}`;
 }
@@ -539,6 +599,11 @@ function bindEvents() {
     updateUI();
   });
 
+  elements.rangeSelect.addEventListener("change", (event) => {
+    state.octaveRange = event.target.value === "2" ? 2 : 1;
+    updateUI();
+  });
+
   elements.showDegrees.addEventListener("change", () => {
     state.showDegrees = elements.showDegrees.checked;
     saveDisplayPreferences();
@@ -580,9 +645,9 @@ function bindEvents() {
     }
 
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-    const noteIndex = KEYBOARD_KEYS.indexOf(key);
+    const noteIndex = state.notes.findIndex((note) => note.keyboardKey === key);
 
-    if (noteIndex >= 0 && noteIndex < state.notes.length) {
+    if (noteIndex >= 0) {
       event.preventDefault();
       playNoteAtIndex(noteIndex);
     }
